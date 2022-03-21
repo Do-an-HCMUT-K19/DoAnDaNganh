@@ -42,8 +42,8 @@ def getPort():
     for i in range(0, N):
         port = ports[i]
         strPort = str(port)
-        if "USB Serial Device" in strPort:
-        #if "com0com - serial port emulator (COM4)" in strPort:
+        #if "USB Serial Device" in strPort:
+        if "com0com - serial port emulator (COM4)" in strPort:
             splitPort = strPort.split(" ")
             commPort = (splitPort[0])
     return commPort
