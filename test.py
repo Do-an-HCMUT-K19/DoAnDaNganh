@@ -1,17 +1,14 @@
-import serial.tools.list_ports
 import time
-import  sys
-from  Adafruit_IO import  MQTTClient
+import sys
+from Adafruit_IO import MQTTClient
 
-from math import floor
 import threading
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+import datetime
 
 
-# FIREBASE CONNECTION
-# Use the application default credentials
 cred = credentials.Certificate(
     "./aceteam-18b6b-firebase-adminsdk-agvz2-9b3044cbe9.json"
 )
@@ -19,100 +16,30 @@ firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 
-curr = {"account":"giacat", "temp": 30, "humid": 80, "soil": 70}
-local_sensor_id = ["1", "10"]
+curr = {"account": "giacat", "temp": 30, "humid": 80, "soil": 70}
+local_sensor_id = [1, 10]
 bump = 19
 START = 1
 END = 2
 OUT = 0
 
+
 AIO_FEED_IDS = ["BBC_TEMP", "BBC_HUMI", "BBC_LED"]
 AIO_USERNAME = "chuong200115"
 AIO_KEY = "aio_ptdx29Phh4tq7orUSDKCAYaNycz0"
 
-def  connected(client):
+
+def connected(client):
     print("Ket noi thanh cong...")
     for feed in AIO_FEED_IDS:
         client.subscribe(feed)
 
-def  subscribe(client , userdata , mid , granted_qos):
-    print("Subcribe thanh cong...")
 
-def  disconnected(client):
-    print("Ngat ket noi...")
-    sys.exit (1)
+def processData():
+    print("send data")
+    curr['ts'] = time.localtime()
+    update_env(curr)
 
-def  message(client , feed_id , payload):
-    print("Nhan du lieu: " + payload)
-    if isMicrobitConnected:
-        ser.write((str(payload) + "#").encode())
-
-client = MQTTClient(AIO_USERNAME , AIO_KEY)
-client.on_connect = connected
-client.on_disconnect = disconnected
-client.on_message = message
-client.on_subscribe = subscribe
-client.connect()
-client.loop_background()
-
-def getPort():
-    ports = serial.tools.list_ports.comports()
-    N = len(ports)
-    commPort = "None"
-    for i in range(0, N):
-        port = ports[i]
-        strPort = str(port)
-        if "USB Serial Device" in strPort:
-        #if "com0com - serial port emulator (COM4)" in strPort:
-            splitPort = strPort.split(" ")
-            commPort = (splitPort[0])
-    return commPort
-
-isMicrobitConnected = False
-if getPort() != "None":
-    ser = serial.Serial( port=getPort(), baudrate=115200)
-    isMicrobitConnected = True
-
-
-def processData(data):
-    data = data.replace("!", "")
-    data = data.replace("#", "")
-    splitData = data.split(":")
-    print(splitData)
-    try:
-        if splitData[1] == "TEMP":
-            client.publish("bbc-temp", splitData[2])
-            curr['temp'] = splitData[2]
-        elif splitData[1] == "HUMI":
-            client.publish("BBC_HUMI", splitData[2])
-            curr['humid'] = splitData[2]
-            curr['ts'] = time.localtime()
-            update_env(curr)
-            time.sleep(10)
-        elif splitData[1] == "LED":
-            client.publish("BBC_LED", splitData[2])
-            print("*")
-        elif splitData[1] == "SOIL":
-            client.publish("SOIL", splitData[2])
-            #TODO name & publish
-            curr['soil']=splitData[2]
-    except:
-        pass
-
-mess = ""
-def readSerial():
-    bytesToRead = ser.inWaiting()
-    if (bytesToRead > 0):
-        global mess
-        mess = mess + ser.read(bytesToRead).decode("UTF-8")
-        while ("#" in mess) and ("!" in mess):
-            start = mess.find("!")
-            end = mess.find("#")
-            processData(mess[start:end + 1])
-            if (end == len(mess)):
-                mess = ""
-            else:
-                mess = mess[end+1:]
 
 def update_env(curr):
     meta_realtime_db = {
@@ -123,7 +50,15 @@ def update_env(curr):
         "timestamp": curr['ts']
     }
     db.collection("realtime_db").add(meta_realtime_db)
+    print("update")
 
+
+mess = ""
+
+
+def readSerial():
+    processData()
+    print("done update")
 
 
 def update_sensor_state(sensor):
@@ -160,7 +95,13 @@ def sensor_transaction(transaction, ref, last, sensor):
     else:
         if last.to_dict()["duration"] != 0:
             db.collection("log_sensor").add(meta_sensor_log)
+
+
 callback_done = threading.Event()
+
+# Create a callback on_snapshot function to capture changes
+
+
 def log_on_snapshot(doc_snapshot, changes, read_time):
     for change in changes:
         if change.type.name == "ADDED":
@@ -220,6 +161,7 @@ timer_watch = timer_ref.on_snapshot(timer_on_snapshot)
 env_ref = db.collection("target_env").where(
     "sensor_id", u"==", bump)
 env_watch = env_ref.on_snapshot(env_on_snapshot)
+
 
 def state(sche):
     # TODO just a fake function for fast testing
@@ -286,23 +228,22 @@ def encode_timestamp(day):
 threading.Thread(target=check_timer).start()
 
 
-
-
-
-def turn_on( sensor_id):
-    # print (" Nhan du lieu : " + payload )
+def turn_on(sensor_id):
     print("Bat sensor so ", sensor_id)
-    ser.write (( str(1) + "#") . encode () )
+    m = "on"
+    # ser.write (( str(1) + "#") . encode () )
     # Map to port
-    # turn on
-    return
 
 
-def turn_off(self, sensor_id):
-    # Map to port
+def turn_off(sensor_id):
     print("tat sensor so ", sensor_id)
-    ser.write((str(0) + "#").encode())
-    
+    m = "off"
+    # Map to port
+    # ser.write((str(0) + "#").encode())
+    # turn off
+    # return
+
+
 def on_():
     sensor_ = {"id": "1", "state": "on"}
     update_sensor_state({"id": 1, "state": "on"})
@@ -311,6 +252,13 @@ def on_():
 def off_():
     sensor_ = {"id": "1", "state": "off"}
     update_sensor_state({"id": 1, "state": "off"})
+
+
+def toggle_sensor(self, sensor_id):
+    # map to port
+    # toggle
+    return
+
 
 def set_env(target):
     # TODO ser.write (( str(target) + "#") . encode () )
@@ -324,14 +272,24 @@ def bump_manual():
 
 
 while True:
-    if isMicrobitConnected:
-        # ser.write((str(1) + "#").encode())
-        # ser.write((str(0) + "#").encode())
+    # input("call func: ")
+    val = input("call func: ")
+    if val == "0":
         readSerial()
-        # cmd=input("state")
-        # if cmd ==1:
-        #     turn_on(10) #sensorID fake
-        #     print("on")
-        # else:
-        #     print("off")
-    time.sleep(1)
+    elif val == "1":
+        turn_off(1)
+    elif val == "2":
+        turn_on(1)
+    elif val == '3':
+        off_()
+    elif val == "4":
+        on_()
+    elif val == "5":
+        print(datetime.datetime.now())
+
+    # log_watch = log_ref.on_snapshot(log_on_snapshot)
+
+
+def init():
+    for sensor in local_sensor_id:
+        update_sensor_state({"id": sensor, "state": "off"})
