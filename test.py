@@ -18,6 +18,7 @@ db = firestore.client()
 
 curr = {"account": "giacat", "temp": 30, "humid": 80, "soil": 70}
 local_sensor_id = [1, 10]
+area="garden"
 bump = 19
 START = 1
 END = 2
@@ -47,7 +48,8 @@ def update_env(curr):
         "air_humidity": curr['humid'],
         "env_temperature": curr['temp'],
         "land_humidity": curr['soil'],
-        "timestamp": curr['ts']
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "area":area
     }
     db.collection("realtime_db").add(meta_realtime_db)
     print("update")
@@ -150,17 +152,17 @@ def env_on_snapshot(doc_snapshot, changes, read_time):
     callback_done.set()
 
 
-log_ref = db.collection("log_sensor").where(
-    "sensor_id", u"in", local_sensor_id)
-log_watch = log_ref.on_snapshot(log_on_snapshot)
+# log_ref = db.collection("log_sensor").where(
+#     "sensor_id", u"in", local_sensor_id)
+# log_watch = log_ref.on_snapshot(log_on_snapshot)
 
-timer_ref = db.collection("timer")    .where(
-    "sensor_id", u"in", local_sensor_id)
-timer_watch = timer_ref.on_snapshot(timer_on_snapshot)
+# timer_ref = db.collection("timer")    .where(
+#     "sensor_id", u"in", local_sensor_id)
+# timer_watch = timer_ref.on_snapshot(timer_on_snapshot)
 
-env_ref = db.collection("target_env").where(
-    "sensor_id", u"==", bump)
-env_watch = env_ref.on_snapshot(env_on_snapshot)
+# env_ref = db.collection("target_env").where(
+#     "sensor_id", u"==", bump)
+# env_watch = env_ref.on_snapshot(env_on_snapshot)
 
 
 def state(sche):
@@ -225,7 +227,7 @@ def encode_timestamp(day):
         return 8
 
 
-threading.Thread(target=check_timer).start()
+# threading.Thread(target=check_timer).start()
 
 
 def turn_on(sensor_id):
@@ -286,6 +288,8 @@ while True:
         on_()
     elif val == "5":
         print(datetime.datetime.now())
+    elif val=="6":
+        update_env(curr)
 
     # log_watch = log_ref.on_snapshot(log_on_snapshot)
 

@@ -1,9 +1,7 @@
 import serial.tools.list_ports
 import time
-import  sys
-from  Adafruit_IO import  MQTTClient
-
-from math import floor
+import sys
+from Adafruit_IO import MQTTClient
 import threading
 import firebase_admin
 from firebase_admin import credentials
@@ -19,41 +17,48 @@ firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 
-curr = {"account":"giacat", "temp": 30, "humid": 80, "soil": 70}
+curr = {"account": "giacat", "temp": 30, "humid": 80, "soil": 70}
 local_sensor_id = ["1", "10"]
+area = "garden"
 bump = 19
 START = 1
 END = 2
 OUT = 0
 
-AIO_FEED_IDS = ["BBC_TEMP", "BBC_HUMI", "BBC_LED"]
+AIO_FEED_IDS = ["BBC_TEMP", "BBC_HUMI", "BBC_LED", "BBC_SOIL"]
 AIO_USERNAME = "chuong200115"
-AIO_KEY = "aio_ptdx29Phh4tq7orUSDKCAYaNycz0"
+AIO_KEY = "aio_ObBV657laKcFszNqsGJL4AmaQBgY"
 
-def  connected(client):
+
+def connected(client):
     print("Ket noi thanh cong...")
     for feed in AIO_FEED_IDS:
         client.subscribe(feed)
 
-def  subscribe(client , userdata , mid , granted_qos):
+
+def subscribe(client, userdata, mid, granted_qos):
     print("Subcribe thanh cong...")
 
-def  disconnected(client):
-    print("Ngat ket noi...")
-    sys.exit (1)
 
-def  message(client , feed_id , payload):
+def disconnected(client):
+    print("Ngat ket noi...")
+    sys.exit(1)
+
+
+def message(client, feed_id, payload):
     print("Nhan du lieu: " + payload)
     if isMicrobitConnected:
         ser.write((str(payload) + "#").encode())
 
-client = MQTTClient(AIO_USERNAME , AIO_KEY)
+
+client = MQTTClient(AIO_USERNAME, AIO_KEY)
 client.on_connect = connected
 client.on_disconnect = disconnected
 client.on_message = message
 client.on_subscribe = subscribe
 client.connect()
 client.loop_background()
+
 
 def getPort():
     ports = serial.tools.list_ports.comports()
@@ -63,14 +68,15 @@ def getPort():
         port = ports[i]
         strPort = str(port)
         if "USB Serial Device" in strPort:
-        #if "com0com - serial port emulator (COM4)" in strPort:
+            # if "com0com - serial port emulator (COM4)" in strPort:
             splitPort = strPort.split(" ")
             commPort = (splitPort[0])
     return commPort
 
+
 isMicrobitConnected = False
 if getPort() != "None":
-    ser = serial.Serial( port=getPort(), baudrate=115200)
+    ser = serial.Serial(port=getPort(), baudrate=115200)
     isMicrobitConnected = True
 
 
@@ -82,24 +88,33 @@ def processData(data):
     try:
         if splitData[1] == "TEMP":
             client.publish("bbc-temp", splitData[2])
-            curr['temp'] = splitData[2]
+            curr['temp'] = int(splitData[2])
         elif splitData[1] == "HUMI":
             client.publish("BBC_HUMI", splitData[2])
-            curr['humid'] = splitData[2]
-            curr['ts'] = time.localtime()
+            curr['humid'] = int(splitData[2])
+            curr['ts'] = firestore.SERVER_TIMESTAMP,
             update_env(curr)
             time.sleep(10)
         elif splitData[1] == "LED":
+            state="on" if splitData[2] == "1" else "off"
             client.publish("BBC_LED", splitData[2])
+            update_sensor_state({"id": 1, "state": state})
+            print("*")
+        elif splitData[1] == "BUMP":
+            state="on" if splitData[2] == "1" else "off"
+            update_sensor_state({"id": 19, "state": state})
             print("*")
         elif splitData[1] == "SOIL":
             client.publish("SOIL", splitData[2])
-            #TODO name & publish
-            curr['soil']=splitData[2]
+            # TODO name & publish
+            curr['soil'] = int(splitData[2])
     except:
         pass
 
+
 mess = ""
+
+
 def readSerial():
     bytesToRead = ser.inWaiting()
     if (bytesToRead > 0):
@@ -114,16 +129,17 @@ def readSerial():
             else:
                 mess = mess[end+1:]
 
+
 def update_env(curr):
     meta_realtime_db = {
         "account_name": curr['account'],
         "air_humidity": curr['humid'],
         "env_temperature": curr['temp'],
         "land_humidity": curr['soil'],
-        "timestamp": curr['ts']
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "area":area
     }
     db.collection("realtime_db").add(meta_realtime_db)
-
 
 
 def update_sensor_state(sensor):
@@ -160,7 +176,11 @@ def sensor_transaction(transaction, ref, last, sensor):
     else:
         if last.to_dict()["duration"] != 0:
             db.collection("log_sensor").add(meta_sensor_log)
+
+
 callback_done = threading.Event()
+
+
 def log_on_snapshot(doc_snapshot, changes, read_time):
     for change in changes:
         if change.type.name == "ADDED":
@@ -220,6 +240,7 @@ timer_watch = timer_ref.on_snapshot(timer_on_snapshot)
 env_ref = db.collection("target_env").where(
     "sensor_id", u"==", bump)
 env_watch = env_ref.on_snapshot(env_on_snapshot)
+
 
 def state(sche):
     # TODO just a fake function for fast testing
@@ -286,13 +307,10 @@ def encode_timestamp(day):
 threading.Thread(target=check_timer).start()
 
 
-
-
-
-def turn_on( sensor_id):
+def turn_on(sensor_id):
     # print (" Nhan du lieu : " + payload )
     print("Bat sensor so ", sensor_id)
-    ser.write (( str(1) + "#") . encode () )
+    ser.write((str(1) + "#") . encode())
     # Map to port
     # turn on
     return
@@ -302,7 +320,8 @@ def turn_off(self, sensor_id):
     # Map to port
     print("tat sensor so ", sensor_id)
     ser.write((str(0) + "#").encode())
-    
+
+
 def on_():
     sensor_ = {"id": "1", "state": "on"}
     update_sensor_state({"id": 1, "state": "on"})
@@ -312,8 +331,9 @@ def off_():
     sensor_ = {"id": "1", "state": "off"}
     update_sensor_state({"id": 1, "state": "off"})
 
+
 def set_env(target):
-    # TODO ser.write (( str(target) + "#") . encode () )
+    ser.write((str(target) + "$") . encode())
     print(target, "humid")
 
 
