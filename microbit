@@ -1,0 +1,54 @@
+function TEMP_HUMI () {
+    NPNBitKit.DHT11Read(DigitalPin.P0)
+    serial.writeString("!1:TEMP:" + NPNBitKit.DHT11Temp() + "#")
+    serial.writeString("!2:HUMI:" + NPNBitKit.DHT11Hum() + "#")
+}
+input.onButtonPressed(Button.A, function () {
+    if (ledstat == 0) {
+        pins.digitalWritePin(DigitalPin.P2, 1)
+        serial.writeString("!1:LED:" + "1" + "#")
+        ledstat = 1
+    } else {
+        pins.digitalWritePin(DigitalPin.P2, 0)
+        serial.writeString("!1:LED:" + "0" + "#")
+        ledstat = 0
+    }
+})
+serial.onDataReceived(serial.delimiters(Delimiters.Hash), function () {
+    cmd = serial.readUntil(serial.delimiters(Delimiters.Hash))
+    if (cmd == "1") {
+        pins.digitalWritePin(DigitalPin.P2, 1)
+    } else {
+        pins.digitalWritePin(DigitalPin.P2, 0)
+    }
+    if (parseFloat(cmd) > 1) {
+        target2 = parseFloat(cmd)
+    }
+})
+function timer_run () {
+    counter = counter + 1
+}
+function Soil () {
+    serial.writeString("!3:SOIL:" + NPNBitKit.AnalogSoilMosture(AnalogPin.P1) + "#")
+    if (NPNBitKit.AnalogSoilMosture(AnalogPin.P1) < target2) {
+        NPNBitKit.Relay(DigitalPin.P4, true)
+        if (NPNBitKit.AnalogSoilMosture(AnalogPin.P1) >= 29) {
+            NPNBitKit.Relay(DigitalPin.P4, false)
+        }
+    } else {
+        NPNBitKit.Relay(DigitalPin.P4, false)
+    }
+}
+let cmd = ""
+let target2 = 0
+let ledstat = 0
+let counter = 0
+led.enable(false)
+counter = 0
+ledstat = 0
+target2 = 0
+basic.forever(function () {
+    TEMP_HUMI()
+    Soil()
+    basic.pause(5000)
+})

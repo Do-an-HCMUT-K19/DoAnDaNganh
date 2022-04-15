@@ -18,7 +18,7 @@ db = firestore.client()
 
 
 curr = {"account": "giacat", "temp": 30, "humid": 80, "soil": 70}
-local_sensor_id = ["1", "10"]
+local_sensor_id = [1,10,18]
 area = "garden"
 bump = 19
 START = 1
@@ -27,7 +27,7 @@ OUT = 0
 
 AIO_FEED_IDS = ["BBC_TEMP", "BBC_HUMI", "BBC_LED", "BBC_SOIL"]
 AIO_USERNAME = "chuong200115"
-AIO_KEY = "aio_ObBV657laKcFszNqsGJL4AmaQBgY"
+AIO_KEY = "aio_OYZl49GLNzFC8D2amK2r3KZuksWo"
 
 
 def connected(client):
@@ -46,7 +46,7 @@ def disconnected(client):
 
 
 def message(client, feed_id, payload):
-    print("Nhan du lieu: " + payload)
+    # print("Nhan du lieu: " + payload)
     if isMicrobitConnected:
         ser.write((str(payload) + "#").encode())
 
@@ -84,17 +84,22 @@ def processData(data):
     data = data.replace("!", "")
     data = data.replace("#", "")
     splitData = data.split(":")
-    print(splitData)
+    # print(splitData)
     try:
         if splitData[1] == "TEMP":
             client.publish("bbc-temp", splitData[2])
             curr['temp'] = int(splitData[2])
+        elif splitData[1] == "SOIL":
+            client.publish("SOIL", splitData[2])
+            # print(splitData[2])
+            # TODO name & publish
+            curr['soil'] = int(splitData[2])
         elif splitData[1] == "HUMI":
             client.publish("BBC_HUMI", splitData[2])
             curr['humid'] = int(splitData[2])
             curr['ts'] = firestore.SERVER_TIMESTAMP,
             update_env(curr)
-            time.sleep(10)
+            # time.sleep(10)
         elif splitData[1] == "LED":
             state="on" if splitData[2] == "1" else "off"
             client.publish("BBC_LED", splitData[2])
@@ -104,10 +109,7 @@ def processData(data):
             state="on" if splitData[2] == "1" else "off"
             update_sensor_state({"id": 19, "state": state})
             print("*")
-        elif splitData[1] == "SOIL":
-            client.publish("SOIL", splitData[2])
-            # TODO name & publish
-            curr['soil'] = int(splitData[2])
+
     except:
         pass
 
@@ -185,35 +187,37 @@ def log_on_snapshot(doc_snapshot, changes, read_time):
     for change in changes:
         if change.type.name == "ADDED":
             # print(f"New sensor turn on: {change.document.id}")
-            turn_on(change.document._data['sensor_id'])
+            if change.document._data['duration']==0:
+                turn_on(change.document._data['sensor_id'])
 
         elif change.type.name == "MODIFIED":
             # print(f"Turn off sensor: {change.document.id}")
-            turn_off(change.document._data['sensor_id'])
+            if change.document._data['duration'] != 0:
+                turn_off(change.document._data['sensor_id'])
 
         elif change.type.name == "REMOVED":
             callback_done.set()
     callback_done.set()
 
-
-def log_on_snapshot(doc_snapshot, changes, read_time):
-    for change in changes:
-        if change.type.name == "ADDED":
-            # print(f"New sensor turn on: {change.document.id}")
-            turn_on(change.document._data['sensor_id'])
-
-        elif change.type.name == "MODIFIED":
-            # print(f"Turn off sensor: {change.document.id}")
-            turn_off(change.document._data['sensor_id'])
-
-        elif change.type.name == "REMOVED":
-            callback_done.set()
-    callback_done.set()
+#
+# def log_on_snapshot(doc_snapshot, changes, read_time):
+#     for change in changes:
+#         if change.type.name == "ADDED":
+#             # print(f"New sensor turn on: {change.document.id}")
+#             turn_on(change.document._data['sensor_id'])
+#
+#         elif change.type.name == "MODIFIED":
+#             # print(f"Turn off sensor: {change.document.id}")
+#             turn_off(change.document._data['sensor_id'])
+#
+#         elif change.type.name == "REMOVED":
+#             callback_done.set()
+#     callback_done.set()
 
 
 def timer_on_snapshot(doc_snapshot, changes, read_time):
-    for change in changes:
-        print(f"New timer on: {change.document.id}")
+    # for change in changes:
+    #     print(f"New timer on: {change.document.id}")
     callback_done.set()
 
 
@@ -303,7 +307,7 @@ def encode_timestamp(day):
     else:
         return 8
 
-
+# TODO
 threading.Thread(target=check_timer).start()
 
 
@@ -316,7 +320,7 @@ def turn_on(sensor_id):
     return
 
 
-def turn_off(self, sensor_id):
+def turn_off(sensor_id):
     # Map to port
     print("tat sensor so ", sensor_id)
     ser.write((str(0) + "#").encode())
@@ -324,16 +328,16 @@ def turn_off(self, sensor_id):
 
 def on_():
     sensor_ = {"id": "1", "state": "on"}
-    update_sensor_state({"id": 1, "state": "on"})
+    update_sensor_state({"id": 18, "state": "on"})
 
 
 def off_():
     sensor_ = {"id": "1", "state": "off"}
-    update_sensor_state({"id": 1, "state": "off"})
+    update_sensor_state({"id": 18, "state": "off"})
 
 
 def set_env(target):
-    ser.write((str(target) + "$") . encode())
+    ser.write((str(target) + "#") . encode())
     print(target, "humid")
 
 
@@ -354,4 +358,4 @@ while True:
         #     print("on")
         # else:
         #     print("off")
-    time.sleep(1)
+    # time.sleep(1)
