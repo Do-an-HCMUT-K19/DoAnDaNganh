@@ -187,12 +187,12 @@ def log_on_snapshot(doc_snapshot, changes, read_time):
     for change in changes:
         if change.type.name == "ADDED":
             # print(f"New sensor turn on: {change.document.id}")
-            if change.document._data['duration']==0:
+            if change.document._data['duration']==-1:
                 turn_on(change.document._data['sensor_id'])
 
         elif change.type.name == "MODIFIED":
             # print(f"Turn off sensor: {change.document.id}")
-            if change.document._data['duration'] != 0:
+            if change.document._data['duration'] != -1:
                 turn_off(change.document._data['sensor_id'])
 
         elif change.type.name == "REMOVED":
